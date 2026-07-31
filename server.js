@@ -14,8 +14,6 @@ app.get('/', (req, res) => {
 
 app.post('/redeem', async (req, res) => {
   const { link } = req.body;
-  
-  // ให้ระบบรายงานใน Log ว่ามีคนส่งอะไรเข้ามา
   console.log('👀 มีคนกดส่งลิงก์เข้ามา:', link);
 
   if (!link) return res.status(400).json({ success: false, message: 'กรุณากรอกลิงก์' });
@@ -31,15 +29,36 @@ app.post('/redeem', async (req, res) => {
     });
 
     if (response.data?.status?.code === 'SUCCESS') {
-      console.log('✅ ดึงเงินสำเร็จ!'); // รายงานว่าได้เงิน
+      console.log('✅ ดึงเงินสำเร็จ!');
       return res.json({ success: true, message: `เติมเงินสำเร็จจำนวน ${response.data.data.my_ticket.amount_baht} บาท!` });
     } else {
-      console.log('❌ ดึงเงินไม่สำเร็จ:', response.data?.status?.message); // รายงานว่าเฟล
+      console.log('❌ ดึงเงินไม่สำเร็จ:', response.data?.status?.message);
       return res.status(400).json({ success: false, message: response.data?.status?.message || 'เติมเงินไม่สำเร็จ' });
     }
+    
   } catch (err) {
-    console.log('❌ Error (ซองใช้ไปแล้ว / ผิดพลาด):', err.response?.data?.status?.message); // รายงาน Error
-    return res.status(400).json({ success: false, message: err.response?.data?.status?.message || 'ซองถูกใช้ไปแล้ว' });
+    // ดึงรหัส Error จาก TrueMoney ถ้ามี
+    const tmnErrorCode = err.response?.data?.status?.code;
+    const tmnErrorMsg = err.response?.data?.status?.message;
+    console.log('❌ Error จากระบบ:', tmnErrorCode || err.message);
+
+    let myErrorMessage = 'เกิดข้อผิดพลาดบางอย่าง';
+
+    // แปลง Error เป็นภาษาไทยให้ตรงกับสาเหตุจริงๆ
+    if (tmnErrorCode === 'VOUCHER_OUT_OF_STOCK') {
+      myErrorMessage = 'ซองนี้ถูกใช้งานไปแล้ว';
+    } else if (tmnErrorCode === 'VOUCHER_NOT_FOUND') {
+      myErrorMessage = 'ไม่ถูกต้อง'; // เพื่อให้หน้าเว็บ Carrd จับคำว่า "ไม่ถูกต้อง" ได้
+    } else if (tmnErrorCode === 'VOUCHER_EXPIRED') {
+      myErrorMessage = 'ซองนี้หมดอายุแล้ว';
+    } else if (tmnErrorMsg) {
+      myErrorMessage = tmnErrorMsg;
+    } else {
+      // ถ้าลิงก์เละเกินไปจน TrueMoney คืนค่า 404 กลับมา
+      myErrorMessage = 'ไม่ถูกต้อง'; 
+    }
+
+    return res.status(400).json({ success: false, message: myErrorMessage });
   }
 });
 
