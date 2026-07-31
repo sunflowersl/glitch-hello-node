@@ -14,6 +14,10 @@ app.get('/', (req, res) => {
 
 app.post('/redeem', async (req, res) => {
   const { link } = req.body;
+  
+  // ให้ระบบรายงานใน Log ว่ามีคนส่งอะไรเข้ามา
+  console.log('👀 มีคนกดส่งลิงก์เข้ามา:', link);
+
   if (!link) return res.status(400).json({ success: false, message: 'กรุณากรอกลิงก์' });
 
   try {
@@ -27,11 +31,14 @@ app.post('/redeem', async (req, res) => {
     });
 
     if (response.data?.status?.code === 'SUCCESS') {
+      console.log('✅ ดึงเงินสำเร็จ!'); // รายงานว่าได้เงิน
       return res.json({ success: true, message: `เติมเงินสำเร็จจำนวน ${response.data.data.my_ticket.amount_baht} บาท!` });
     } else {
+      console.log('❌ ดึงเงินไม่สำเร็จ:', response.data?.status?.message); // รายงานว่าเฟล
       return res.status(400).json({ success: false, message: response.data?.status?.message || 'เติมเงินไม่สำเร็จ' });
     }
   } catch (err) {
+    console.log('❌ Error (ซองใช้ไปแล้ว / ผิดพลาด):', err.response?.data?.status?.message); // รายงาน Error
     return res.status(400).json({ success: false, message: err.response?.data?.status?.message || 'ซองถูกใช้ไปแล้ว' });
   }
 });
